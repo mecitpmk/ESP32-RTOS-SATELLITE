@@ -172,7 +172,7 @@ class Communucation
             */
         }ACKPacket;
 
-        union // I am not giving that union as a param so make it global
+        union xControlVars// I am not giving that union as a param so make it global
         {
 
             struct 
@@ -201,7 +201,7 @@ class Communucation
 
                 uint8_t sensorsReaded           : 1 ;
 
-                uint8_t isTelemReadyTimer       : 1 ;
+                
                 /* Total 9 bit. -7 Bit UNUSED!-
                             We can Use Later!*/
                                 
@@ -210,8 +210,9 @@ class Communucation
             uint16_t resetFlag;
             
         }controlVar = {.resetFlag = RESET_FLAGS};
-
-
+        
+        static uint8_t activatedTelemTimer  ; 
+        static uint8_t isTelemReadyTimer    ;
 
         struct timerStructure
         {
@@ -276,8 +277,8 @@ class Communucation
         void readIMU(void);
         void readGPS(void);
         void readBMP(void);
-        void fixAltTimer( TimerHandle_t xTimer );
-        void telemTimer( TimerHandle_t xTimer );
+        static void fixAltTimer( TimerHandle_t xTimer );
+        static void telemTimer( TimerHandle_t xTimer );
         
         
 

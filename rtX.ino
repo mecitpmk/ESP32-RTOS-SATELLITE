@@ -118,9 +118,8 @@ void TaskCommunucation(void *pvParameters)  // This is a task.
   cProtocol.stringCopies();
   xTaskResumeAll();
   
-  uint8_t telemTimID = 0;
-  cProtocol.timerPackage.timerTelemetry = xTimerCreate("Tel", pdMS_TO_TICKS(1000), pdTRUE, ( void * )telemTimID, &cProtocol.telemTimer);
-  xTimerStart(cProtocol.timerPackage.timerTelemetry,5); // enable.
+  
+  
   for (;;) // A Task shall never return or exit.
   {
     cProtocol.readSerialDatas(); // Reads serial data all the time.
