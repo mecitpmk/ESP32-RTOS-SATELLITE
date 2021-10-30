@@ -5,7 +5,9 @@ The software is in still development stage. Implemenatation will based on WiFi
 At this point, unwanted circumstance will occur.
 
 -> Communucation will be asynchronous, so that in every time user can send a package, command or desired structure.
+
 -> Descent Control algorithm will implemented in seperated task so, according to altitude sensor we will control simultaneously our motor speed as we desired.
+
 -> Sensors data and (included SATELLITE status etc.) will be sended in 1Hz.
 
 The purpose of the system is being perfect in SATELLITE category.
