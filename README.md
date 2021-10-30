@@ -8,7 +8,7 @@ At this point, unwanted circumstance will occur.
 
 -> Descent Control algorithm will implemented in seperated task so, according to altitude sensor we will control simultaneously our motor speed as we desired.
 
--> Sensors data and (included SATELLITE status etc.) will be sended in 1Hz.
+-> Sensors data and (included SATELLITE status , altitude , GPS , IMU datas etc.) will be sended in 1Hz.
 
 The purpose of the system is being perfect in SATELLITE category.
 
