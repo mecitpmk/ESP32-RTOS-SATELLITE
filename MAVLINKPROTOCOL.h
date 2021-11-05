@@ -14,6 +14,7 @@
 // #include <ESP32Servo.h>
 
 #define MAX_TELEMETRY_LENGTH 2 // 2kb is probably too much but anyways. I don't wanna fail because of this in tests
+#define ACTIVE_TIMER_NUMBER 2
 
 
 class OLDDATACLASS
@@ -172,7 +173,7 @@ class Communucation
             */
         }ACKPacket;
 
-        union // I am not giving that union as a param so make it global
+        union xControlVars// I am not giving that union as a param so make it global
         {
 
             struct 
@@ -200,25 +201,36 @@ class Communucation
                 uint8_t gpsReaded               : 1 ;
 
                 uint8_t sensorsReaded           : 1 ;
-
-                uint8_t isTelemReadyTimer       : 1 ;
-                /* Total 9 bit. -7 Bit UNUSED!-
-                            We can Use Later!*/
+                uint8_t telemReadyTimer         : 1 ;
+                uint8_t activatedTelemTimer     : 1 ; 
+                /* Total 16 bit. 0 Bit UNUSED!- */
                                 
             }FLAGS;
             
             uint16_t resetFlag;
             
         }controlVar = {.resetFlag = RESET_FLAGS};
-
-
+        
+        
+        
 
         struct timerStructure
         {
-            TimerHandle_t timerfixedAlt;
             TimerHandle_t timerTelemetry;
+            TimerHandle_t timerfixedAlt;
         }timerPackage;
 
+        struct timerCllbckStr
+        {
+            /* 
+                timerID 0 = TELEMETRY. Timer ID
+                timerID 1 = fixedAlt   Timer ID
+            */
+            uint8_t timerID;
+            union xControlVars *controlVarPt;
+        }timerCllbackArr[ACTIVE_TIMER_NUMBER];
+
+    
         unsigned long REACHED_SIZE = 0        ;
         unsigned long VIDEO_SIZE   = 10000000 ;
         
@@ -276,9 +288,9 @@ class Communucation
         void readIMU(void);
         void readGPS(void);
         void readBMP(void);
-        void fixAltTimer( TimerHandle_t xTimer );
-        void telemTimer( TimerHandle_t xTimer );
         
+        void initTimerCounters();
+        static void timerHandlerFunct( TimerHandle_t xTimer );
         
 
 }; 

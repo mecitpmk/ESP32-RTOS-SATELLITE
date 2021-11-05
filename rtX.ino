@@ -22,7 +22,7 @@ void setup() {
   
   // initialize serial communication at 115200 bits per second:
   Serial.begin(115200);
-  
+  cProtocol.stringCopies();  
   // Now set up two tasks to run independently.
   xTaskCreatePinnedToCore(
     TaskCommunucation
@@ -80,15 +80,19 @@ void TaskDescentControl(void *pvParameters)  // This is a task.
     {
         if (cProtocol.controlVar.FLAGS.fixAltitude)
         {
-            // if Altitude fixed (200m)
+            // if Altitude fixed in (200m)
             return;
         }
-        else // Seperated and Altitude fixed.
+        else // if seperated but altitude is not = 200m.
         {
             // if normally falling with Activated Motor Speed (8-10 m/s)
             
             return;
         }
+    }
+    else
+    {
+      // Nothing to do.(MOTOR DOESNT HAVE TO RUN.)
     }
   }
 }
@@ -113,14 +117,7 @@ void TaskCommunucation(void *pvParameters)  // This is a task.
 {
   (void) pvParameters;
 
-
-  vTaskSuspendAll();
-  cProtocol.stringCopies();
-  xTaskResumeAll();
   
-  uint8_t telemTimID = 0;
-  cProtocol.timerPackage.timerTelemetry = xTimerCreate("Tel", pdMS_TO_TICKS(1000), pdTRUE, ( void * )telemTimID, &cProtocol.telemTimer);
-  xTimerStart(cProtocol.timerPackage.timerTelemetry,5); // enable.
   for (;;) // A Task shall never return or exit.
   {
     cProtocol.readSerialDatas(); // Reads serial data all the time.

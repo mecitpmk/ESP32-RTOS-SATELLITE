@@ -95,19 +95,27 @@ void Communucation::readAltitude(void) // readBMP.
 
 }
 
-void Communucation::fixAltTimer( TimerHandle_t xTimer )
+
+void Communucation::timerHandlerFunct( TimerHandle_t xTimer )
 {
-    vTaskSuspendAll(); // May be Unnecessary?
-    controlVar.FLAGS.fixAltitude = FALSE ;
-    xTaskResumeAll(); // May be unnecessary?
+    struct timerCllbckStr *pxStructAddress;
+    pxStructAddress =  ( struct timerCllbckStr * ) pvTimerGetTimerID( xTimer );
+
+    switch (pxStructAddress->timerID)
+    {
+    case timerID_FIXED_ALT : 
+        pxStructAddress->controlVarPt->FLAGS.telemReadyTimer = 1;
+        break;
+    
+    case timerID_TELEMETRY :
+        pxStructAddress->controlVarPt->FLAGS.fixAltitude    = 0;
+        break;
+    default :
+        break;
+    }
 }
 
-void Communucation::telemTimer( TimerHandle_t xTimer )
-{
-    vTaskSuspendAll(); // May be Unnecessary?
-    controlVar.FLAGS.isTelemReadyTimer = 1 ;
-    xTaskResumeAll(); // May be unnecessary?
-}
+
 
 void Communucation::setNewStatus(void)
 {
@@ -143,8 +151,7 @@ void Communucation::setNewStatus(void)
         controlVar.FLAGS.fixAltitudeBefore  = TRUE           ;
         dataPacket.FLIGHT_STATUS            = STAT_FIXEDALT  ;
         //ENABLE TIMER (TO TIMER INTERRUPT.)(as Callback make false fixAltitude)
-        uint8_t timID = 1;
-        timerPackage.timerfixedAlt =  xTimerCreate("FAlt", pdMS_TO_TICKS(10000), pdFALSE, ( void * )timID, &fixAltTimer);
+        timerPackage.timerfixedAlt =  xTimerCreate("FAlt", pdMS_TO_TICKS(10000), pdFALSE, ( void * )&timerCllbackArr[timerID_FIXED_ALT], &Communucation::timerHandlerFunct);
         xTimerStart(timerPackage.timerfixedAlt,5); // enable.
 
         /*
@@ -230,7 +237,8 @@ bool Communucation::waitforResponse(void)
         case MISSED_DATA_AV_H:
             ACKPacket.ACKType   = ACKType_NONE  ;
             ACKPacket.ACK       = ACK_SUCCESS   ;
-            sendTelemetries(); // SEND TELEMETRIES AGAIN.
+            // sendTelemetries(); // SEND TELEMETRIES AGAIN.
+            sendPackage();
             break;
         case NOTHING_MISSED_H:
             ACKPacket.ACKType   = ACKType_NONE  ;
@@ -357,19 +365,35 @@ void Communucation::manualmotorActivation(bool fortesting)
     
 }
 
+void Communucation::initTimerCounters()
+{
+    for (uint8_t i_X = 0 ; i_X < ACTIVE_TIMER_NUMBER ; i_X++)
+    {
+        timerCllbackArr[i_X].timerID = i_X;
+        timerCllbackArr[i_X].controlVarPt = &controlVar;
+    }
+}
+
 void Communucation::readSerialDatas(void)
 {
-    if ((controlVar.FLAGS.bmpReaded & controlVar.FLAGS.gpsReaded & controlVar.FLAGS.imuReaded) == SENSORS_READY && \
-            controlVar.FLAGS.isTelemReadyTimer)
+
+    if (controlVar.FLAGS.activatedTelemTimer != TELEM_TIMER_ACTIVATED)
+    {
+        controlVar.FLAGS.activatedTelemTimer = TELEM_TIMER_ACTIVATED;
+        timerPackage.timerTelemetry = xTimerCreate("Tel", pdMS_TO_TICKS(1000), pdTRUE, ( void * )&timerCllbackArr[timerID_TELEMETRY], &Communucation::timerHandlerFunct);
+        xTimerStart(timerPackage.timerTelemetry,5); // enable.
+    }
+    else if ((controlVar.FLAGS.bmpReaded & controlVar.FLAGS.gpsReaded & controlVar.FLAGS.imuReaded) == SENSORS_READY && \
+            controlVar.FLAGS.telemReadyTimer)
      // In this condition checks 1HZ data Rate.  (IF 1 HZ completed send..)
     {
         // sensors data is ok. Send datas to GCS!
         vTaskSuspendAll();
         
-        controlVar.FLAGS.bmpReaded          = BMP_NOT_READED; // Sets them unreaded.
-        controlVar.FLAGS.gpsReaded          = GPS_NOT_READED; // Sets them unreaded.
-        controlVar.FLAGS.imuReaded          = IMU_NOT_READED; // Sets them unreaded.
-        controlVar.FLAGS.isTelemReadyTimer  = 0;
+        controlVar.FLAGS.bmpReaded       = BMP_NOT_READED; // Sets them unreaded.
+        controlVar.FLAGS.gpsReaded       = GPS_NOT_READED; // Sets them unreaded.
+        controlVar.FLAGS.imuReaded       = IMU_NOT_READED; // Sets them unreaded.
+        controlVar.FLAGS.telemReadyTimer = 0             ;
 
 
         sendPackage();
@@ -387,7 +411,6 @@ void Communucation::readSerialDatas(void)
             {
                 getProtocolStatus();
                 controlVar.FLAGS.protocolReaded = TRUE;
-                continue;
             }
             if (bufferCt == MAX_GCS_BYTES)
             {
