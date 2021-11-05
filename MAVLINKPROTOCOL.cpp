@@ -6,8 +6,6 @@
 #define TRUE 0b1 
 #define FALSE 0b0
 
-uint8_t Communucation::activatedTelemTimer  = 0 ;
-uint8_t Communucation::isTelemReadyTimer    = 0 ;
 //#include <string.h>
 //#include <WiFiSerial.h>
 /*/
@@ -99,18 +97,16 @@ void Communucation::readAltitude(void) // readBMP.
 
 void Communucation::fixAltTimer( TimerHandle_t xTimer )
 {
-    // Task Resumes and Suspending is not OK in Static Function
-    // vTaskSuspendAll(); // May be Unnecessary?
-    // xTaskResumeAll(); // May be unnecessary?
-    return;
+    vTaskSuspendAll(); // May be Unnecessary?
+    controlVar.FLAGS.fixAltitude = FALSE ;
+    xTaskResumeAll(); // May be unnecessary?
 }
 
 void Communucation::telemTimer( TimerHandle_t xTimer )
 {
-    // Task Resumes and Suspending is not OK in Static Function
-    // vTaskSuspendAll();
-    isTelemReadyTimer = 1 ;
-    // vTaskResumeAll();
+    vTaskSuspendAll(); // May be Unnecessary?
+    controlVar.FLAGS.isTelemReadyTimer = 1 ;
+    xTaskResumeAll(); // May be unnecessary?
 }
 
 void Communucation::setNewStatus(void)
@@ -148,7 +144,7 @@ void Communucation::setNewStatus(void)
         dataPacket.FLIGHT_STATUS            = STAT_FIXEDALT  ;
         //ENABLE TIMER (TO TIMER INTERRUPT.)(as Callback make false fixAltitude)
         uint8_t timID = 1;
-        timerPackage.timerfixedAlt =  xTimerCreate("FAlt", pdMS_TO_TICKS(10000), pdFALSE, ( void * )&timID, &Communucation::fixAltTimer);
+        timerPackage.timerfixedAlt =  xTimerCreate("FAlt", pdMS_TO_TICKS(10000), pdFALSE, ( void * )timID, &fixAltTimer);
         xTimerStart(timerPackage.timerfixedAlt,5); // enable.
 
         /*
@@ -234,8 +230,7 @@ bool Communucation::waitforResponse(void)
         case MISSED_DATA_AV_H:
             ACKPacket.ACKType   = ACKType_NONE  ;
             ACKPacket.ACK       = ACK_SUCCESS   ;
-            // sendTelemetries(); // SEND TELEMETRIES AGAIN.
-            sendPackage();
+            sendTelemetries(); // SEND TELEMETRIES AGAIN.
             break;
         case NOTHING_MISSED_H:
             ACKPacket.ACKType   = ACKType_NONE  ;
@@ -364,25 +359,17 @@ void Communucation::manualmotorActivation(bool fortesting)
 
 void Communucation::readSerialDatas(void)
 {
-
-    if (activatedTelemTimer != TELEM_TIMER_ACTIVATED)
-    {
-        activatedTelemTimer = TELEM_TIMER_ACTIVATED;
-        uint8_t telemTimID = 0;
-        timerPackage.timerTelemetry = xTimerCreate("Tel", pdMS_TO_TICKS(1000), pdTRUE, ( void * )&telemTimID, &Communucation::telemTimer);
-        xTimerStart(timerPackage.timerTelemetry,5); // enable.
-    }
-    else if ((controlVar.FLAGS.bmpReaded & controlVar.FLAGS.gpsReaded & controlVar.FLAGS.imuReaded) == SENSORS_READY && \
-            isTelemReadyTimer)
+    if ((controlVar.FLAGS.bmpReaded & controlVar.FLAGS.gpsReaded & controlVar.FLAGS.imuReaded) == SENSORS_READY && \
+            controlVar.FLAGS.isTelemReadyTimer)
      // In this condition checks 1HZ data Rate.  (IF 1 HZ completed send..)
     {
         // sensors data is ok. Send datas to GCS!
         vTaskSuspendAll();
         
-        controlVar.FLAGS.bmpReaded  = BMP_NOT_READED; // Sets them unreaded.
-        controlVar.FLAGS.gpsReaded  = GPS_NOT_READED; // Sets them unreaded.
-        controlVar.FLAGS.imuReaded  = IMU_NOT_READED; // Sets them unreaded.
-        isTelemReadyTimer           = 0;
+        controlVar.FLAGS.bmpReaded          = BMP_NOT_READED; // Sets them unreaded.
+        controlVar.FLAGS.gpsReaded          = GPS_NOT_READED; // Sets them unreaded.
+        controlVar.FLAGS.imuReaded          = IMU_NOT_READED; // Sets them unreaded.
+        controlVar.FLAGS.isTelemReadyTimer  = 0;
 
 
         sendPackage();
@@ -400,6 +387,7 @@ void Communucation::readSerialDatas(void)
             {
                 getProtocolStatus();
                 controlVar.FLAGS.protocolReaded = TRUE;
+                continue;
             }
             if (bufferCt == MAX_GCS_BYTES)
             {

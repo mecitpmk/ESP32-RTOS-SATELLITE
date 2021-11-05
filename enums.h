@@ -83,8 +83,3 @@ enum
     SENSORS_NOT_READY   = 0,
     SENSORS_READY       = 1
 };
-
-enum
-{
-    TELEM_TIMER_ACTIVATED = 1
-};
