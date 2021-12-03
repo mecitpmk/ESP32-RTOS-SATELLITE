@@ -17,6 +17,45 @@
 #define ACTIVE_TIMER_NUMBER 2
 
 
+union xControlVars// I am not giving that union as a param so make it global
+{
+
+    struct 
+    {
+        uint16_t Readed                  : 1 ;
+        uint16_t protocolReaded          : 1 ;
+        uint16_t systemActivated         : 1 ;
+
+        uint16_t startReaded             : 1 ;
+        uint16_t fixAltitude             : 1 ;
+        uint16_t fixAltitudeBefore       : 1 ;
+        uint16_t seperatedBefore         : 1 ;
+        
+        uint16_t manupulationFalling     : 1 ; 
+
+        uint16_t videoTransferCompleted  : 1 ;
+
+        uint16_t videoSizeTransferred    : 1 ;
+
+
+        
+
+        uint16_t bmpReaded               : 1 ;
+        uint16_t imuReaded               : 1 ;
+        uint16_t gpsReaded               : 1 ;
+
+        uint16_t sensorsReaded           : 1 ;
+        uint16_t telemReadyTimer         : 1 ;
+        uint16_t activatedTelemTimer     : 1 ; 
+        /* Total 16 bit. 0 Bit UNUSED!- */
+                        
+    }FLAGS;
+    
+    uint16_t resetFlag;
+    
+};
+
+
 class OLDDATACLASS
 {
     public:
@@ -173,64 +212,13 @@ class Communucation
             */
         }ACKPacket;
 
-        union xControlVars// I am not giving that union as a param so make it global
-        {
-
-            struct 
-            {
-                uint8_t Readed                  : 1 ;
-                uint8_t protocolReaded          : 1 ;
-                uint8_t systemActivated         : 1 ;
-     
-                uint8_t startReaded             : 1 ;
-                uint8_t fixAltitude             : 1 ;
-                uint8_t fixAltitudeBefore       : 1 ;
-                uint8_t seperatedBefore         : 1 ;
-                
-                uint8_t manupulationFalling     : 1 ; 
-
-                uint8_t videoTransferCompleted  : 1 ;
-
-                uint8_t videoSizeTransferred    : 1 ;
-
-
-                
-
-                uint8_t bmpReaded               : 1 ;
-                uint8_t imuReaded               : 1 ;
-                uint8_t gpsReaded               : 1 ;
-
-                uint8_t sensorsReaded           : 1 ;
-                uint8_t telemReadyTimer         : 1 ;
-                uint8_t activatedTelemTimer     : 1 ; 
-                /* Total 16 bit. 0 Bit UNUSED!- */
-                                
-            }FLAGS;
-            
-            uint16_t resetFlag;
-            
-        }controlVar = {.resetFlag = RESET_FLAGS};
-        
-        
-        
-
         struct timerStructure
         {
             TimerHandle_t timerTelemetry;
             TimerHandle_t timerfixedAlt;
         }timerPackage;
 
-        struct timerCllbckStr
-        {
-            /* 
-                timerID 0 = TELEMETRY. Timer ID
-                timerID 1 = fixedAlt   Timer ID
-            */
-            uint8_t timerID;
-            union xControlVars *controlVarPt;
-        }timerCllbackArr[ACTIVE_TIMER_NUMBER];
 
-    
         unsigned long REACHED_SIZE = 0        ;
         unsigned long VIDEO_SIZE   = 10000000 ;
         
@@ -265,33 +253,35 @@ class Communucation
         
         Communucation();                    //constructor.
         
-        void sendPackage(void) ; // First send 
-        void sendACK(void);
-        void stringCopies(void); // in setup() run this function to copy.
-        void readPressure(void);    //Basıncı okuma fonksiyonu
-        void readAltitude(void);    //Yüksekliği okuma fonksiyonu
-        void readTemperature(void); //Temp okuma fonk.
-        void readTurnNumber(void); // Dönüş Sayısı okuma fonk.
-        void mainLp(void); // Tek tek fonksiyonları çalıştırıp dataları auto gönderiyor.
-        void readPitch(void); // Pitch'i oku
-        void readRoll(void); // Roll'u oku
-        void readYaw(void); // Yaw'u oku.
-        void setNewStatus(void);
-        bool waitforResponse(void);
-        void releasePayload(void);
-        void manualServiceCheck(void);
-        void manualmotorActivation(bool fortesting);
-        void getDatas(void);
-        void getProtocolStatus(void);
+        void sendPackage( void ) ; // First send 
+        void sendACK( void );
+        void stringCopies( void ); // in setup() run this function to copy.
+        void readPressure( void );    //Basıncı okuma fonksiyonu
+        void readAltitude( void );    //Yüksekliği okuma fonksiyonu
+        void readTemperature( void ); //Temp okuma fonk.
+        void readTurnNumber( void ); // Dönüş Sayısı okuma fonk.
+        void mainLp( void ); // Tek tek fonksiyonları çalıştırıp dataları auto gönderiyor.
+        void readPitch( void ); // Pitch'i oku
+        void readRoll( void ); // Roll'u oku
+        void readYaw( void ); // Yaw'u oku.
+        void setNewStatus( void );
+        bool waitforResponse( void );
+        void releasePayload( void );
+        void manualServiceCheck( void );
+        void manualmotorActivation( bool fortesting );
+        void getDatas( void );
+        void getProtocolStatus( void );
         
-        void readSerialDatas(void);
-        void readIMU(void);
-        void readGPS(void);
-        void readBMP(void);
+        void readSerialDatas( void );
+        void readIMU( void );
+        void readGPS( void );
+        void readBMP( void );
         
-        void initTimerCounters();
+        void verifyResponse( void );
+        
+        
         static void timerHandlerFunct( TimerHandle_t xTimer );
-        
+
 
 }; 
 

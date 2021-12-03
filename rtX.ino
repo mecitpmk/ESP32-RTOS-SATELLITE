@@ -10,12 +10,15 @@
 
 #include "MAVLINKPROTOCOL.h"
 
-// define two tasks for Blink & AnalogRead
+
+
 void TaskCommunucation( void *pvParameters );
 void TaskSensors( void *pvParameters );
 void TaskDescentControl( void *pvParameters );
 
 Communucation cProtocol ;
+extern union xControlVars controlVar; // Defined in MAVLINKPROTOCOL.cpp
+
 
 // the setup function runs once when you press reset or power the board
 void setup() {
@@ -68,17 +71,15 @@ void TaskDescentControl(void *pvParameters)  // This is a task.
   (void) pvParameters;
 
 
-//   pinMode(LED_BUILTIN, OUTPUT); // To Remember We can Adjust PinModes.
-
 
     // INIT BMP IN HERE.
   for (;;) // A Task shall never return or exit.
   {
     cProtocol.readBMP(); // Get Altitude Temp, Pressure
     cProtocol.setNewStatus(); //To get status and Velocity.
-    if (cProtocol.controlVar.FLAGS.seperatedBefore) // if Motor Activated
+    if (controlVar.FLAGS.seperatedBefore) // if Motor Activated
     {
-        if (cProtocol.controlVar.FLAGS.fixAltitude)
+        if (controlVar.FLAGS.fixAltitude)
         {
             // if Altitude fixed in (200m)
             return;

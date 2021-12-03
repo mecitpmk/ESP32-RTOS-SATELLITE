@@ -6,6 +6,9 @@
 #define TRUE 0b1 
 #define FALSE 0b0
 
+union xControlVars controlVar;
+
+
 //#include <string.h>
 //#include <WiFiSerial.h>
 /*/
@@ -96,19 +99,21 @@ void Communucation::readAltitude(void) // readBMP.
 }
 
 
+
+
+
 void Communucation::timerHandlerFunct( TimerHandle_t xTimer )
 {
-    struct timerCllbckStr *pxStructAddress;
-    pxStructAddress =  ( struct timerCllbckStr * ) pvTimerGetTimerID( xTimer );
+    uint8_t *TIM_ID = ( uint8_t *) pvTimerGetTimerID( xTimer );
 
-    switch (pxStructAddress->timerID)
+    switch ( *TIM_ID )
     {
-    case timerID_FIXED_ALT : 
-        pxStructAddress->controlVarPt->FLAGS.telemReadyTimer = 1;
+    case timerID_TELEMETRY : 
+        controlVar.FLAGS.telemReadyTimer = 1;
         break;
     
-    case timerID_TELEMETRY :
-        pxStructAddress->controlVarPt->FLAGS.fixAltitude    = 0;
+    case timerID_FIXED_ALT :
+        controlVar.FLAGS.fixAltitude     = 0;
         break;
     default :
         break;
@@ -151,8 +156,9 @@ void Communucation::setNewStatus(void)
         controlVar.FLAGS.fixAltitudeBefore  = TRUE           ;
         dataPacket.FLIGHT_STATUS            = STAT_FIXEDALT  ;
         //ENABLE TIMER (TO TIMER INTERRUPT.)(as Callback make false fixAltitude)
-        timerPackage.timerfixedAlt =  xTimerCreate("FAlt", pdMS_TO_TICKS(10000), pdFALSE, ( void * )&timerCllbackArr[timerID_FIXED_ALT], &Communucation::timerHandlerFunct);
-        xTimerStart(timerPackage.timerfixedAlt,5); // enable.
+
+        timerPackage.timerfixedAlt =  xTimerCreate("FAlt", pdMS_TO_TICKS(10000), pdFALSE, ( void * )( (uint8_t)timerID_FIXED_ALT ), &Communucation::timerHandlerFunct);
+        xTimerStart(timerPackage.timerfixedAlt,0); // enable.
 
         /*
             
@@ -228,6 +234,7 @@ void Communucation::releasePayload(void)
 }
 
 
+// Solve ACK Package from Another Side
 bool Communucation::waitforResponse(void)
 {
     // getProtocolStatus();
@@ -365,14 +372,7 @@ void Communucation::manualmotorActivation(bool fortesting)
     
 }
 
-void Communucation::initTimerCounters()
-{
-    for (uint8_t i_X = 0 ; i_X < ACTIVE_TIMER_NUMBER ; i_X++)
-    {
-        timerCllbackArr[i_X].timerID = i_X;
-        timerCllbackArr[i_X].controlVarPt = &controlVar;
-    }
-}
+
 
 void Communucation::readSerialDatas(void)
 {
@@ -380,8 +380,8 @@ void Communucation::readSerialDatas(void)
     if (controlVar.FLAGS.activatedTelemTimer != TELEM_TIMER_ACTIVATED)
     {
         controlVar.FLAGS.activatedTelemTimer = TELEM_TIMER_ACTIVATED;
-        timerPackage.timerTelemetry = xTimerCreate("Tel", pdMS_TO_TICKS(1000), pdTRUE, ( void * )&timerCllbackArr[timerID_TELEMETRY], &Communucation::timerHandlerFunct);
-        xTimerStart(timerPackage.timerTelemetry,5); // enable.
+        timerPackage.timerTelemetry = xTimerCreate("Tel", pdMS_TO_TICKS(1000), pdTRUE, ( void * )( (uint8_t)timerID_TELEMETRY ), &Communucation::timerHandlerFunct);
+        xTimerStart(timerPackage.timerTelemetry,0); // enable.
     }
     else if ((controlVar.FLAGS.bmpReaded & controlVar.FLAGS.gpsReaded & controlVar.FLAGS.imuReaded) == SENSORS_READY && \
             controlVar.FLAGS.telemReadyTimer)
@@ -397,50 +397,57 @@ void Communucation::readSerialDatas(void)
 
 
         sendPackage();
-        vTaskDelay(15);
+        vTaskDelay(20);
         xTaskResumeAll();
 
-        return;
     }
-    else if (!controlVar.FLAGS.Readed)
+    if (!controlVar.FLAGS.Readed)
     {
         if (Serial.available())
         {
+            // < # OF BYTES >
+            // START OF MARKER <
+            // END   OF MARKER >
             Buffer[bufferCt++] = (uint8_t)Serial.read();
-            if (!controlVar.FLAGS.protocolReaded) 
+            if (Buffer[bufferCt-1] == '<' && !controlVar.FLAGS.protocolReaded)
             {
                 getProtocolStatus();
                 controlVar.FLAGS.protocolReaded = TRUE;
             }
-            if (bufferCt == MAX_GCS_BYTES)
+            if (bufferCt == MAX_GCS_BYTES && Buffer[bufferCt-1] == '>') // EOF and MAX GCS BYTES!
             {
+                
                 controlVar.FLAGS.Readed = TRUE;
                 memcpy(&gcsPacket,  Buffer , bufferCt-1);
                 memset(Buffer, '\0', sizeof(Buffer));
-                bufferCt    = 0;
+                bufferCt    = 0; //bufferCounter Reset.
                 while (Serial.available())
                 {
                     Serial.read(); // Clean RX buffer..
                 }
+
+                //xTimerStop(timerPackage.timerTelemetry,0) // May can Timer Trigger (?)
+                verifyResponse();
                 
             }
         }
     }
-    else
-    {
-        
-        controlVar.FLAGS.Readed = FALSE;
-        controlVar.FLAGS.protocolReaded = FALSE;
-        waitforResponse();
-        if (gcsPacket.bufferArray[0] != '\0')
-        {
-            memset(gcsPacket.bufferArray , '\0',sizeof(gcsPacket.bufferArray));
-        }
-        sendACK();
-    }
 }
 
-void Communucation::readIMU(void)
+
+void Communucation::verifyResponse( void )
+{
+    controlVar.FLAGS.Readed = FALSE;
+    controlVar.FLAGS.protocolReaded = FALSE;
+    waitforResponse();
+    if (gcsPacket.bufferArray[0] != '\0')
+    {
+        memset(gcsPacket.bufferArray , '\0',sizeof(gcsPacket.bufferArray));
+    }
+    sendACK();
+}
+
+void Communucation::readIMU( void )
 {
     
     vTaskSuspendAll();
@@ -448,14 +455,14 @@ void Communucation::readIMU(void)
     xTaskResumeAll();
     return;
 }
-void Communucation::readGPS(void)
+void Communucation::readGPS( void )
 {
     vTaskSuspendAll();
     controlVar.FLAGS.gpsReaded = GPS_READED;
     xTaskResumeAll();
     return;
 }
-void Communucation::readBMP(void)
+void Communucation::readBMP( void )
 {
     vTaskSuspendAll();
     controlVar.FLAGS.bmpReaded = BMP_READED;
@@ -464,7 +471,7 @@ void Communucation::readBMP(void)
     return;
 }
 
-void Communucation::getDatas(void)
+void Communucation::getDatas( void )
 {
     
     if (millis() - oneHZ >= oneHzInterval)
